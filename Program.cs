@@ -12,7 +12,7 @@ namespace SimplePagingExample
 
         static async Task Main(string[] args)
         {
-            await WithSearch();
+            //await WithSearch();
             await WithAggregation();            
         }
 
@@ -47,20 +47,23 @@ namespace SimplePagingExample
         /// <summary>
         /// Uses aggregation with <see href="https://oss.redislabs.com/redisearch/Aggregations/#cursor_api">cursor API</see>
         /// the cursor maintains the query in redis for 30000 milliseconds and spoon feeds it back
-        /// to you as you consume the cursor. The LOAD parameter used can be less than ideal under heavier loads as it requires 
-        /// that the query essentially perform an HREAD on each record
+        /// to you as you consume the cursor. GroupBy is used to pull back the title 
+        /// You can also use LOAD to pull back specific fields, though this can be a performance
+        /// concern on very large queries
         /// </summary>
         /// <returns></returns>        
         public static async Task WithAggregation()
         {
             var db = _redis.GetDatabase();
             var bookClient = new Client("books-idx", db);
+            var group = new Group("@title");
             var aggregation = new AggregationBuilder("*")
-                .Load(new[] { "title" })
+                .GroupBy(group)
                 .Cursor(50, 30000);
             var result = await bookClient.AggregateAsync(aggregation);
             while (result.CursorId != 0)
             {
+                //print the title of the first book pulled back by the query
                 Console.WriteLine(result.GetRow(0).Value["title"]);
                 result = await bookClient.CursorReadAsync(result.CursorId, 50);
             }
